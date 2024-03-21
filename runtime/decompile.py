@@ -12,7 +12,6 @@ import recompile
 
 def main(conffile=None, force_jad=False):
     commands = Commands(conffile)
-    commands.checkupdates()
 
     cltdone = False
     srvdone = False

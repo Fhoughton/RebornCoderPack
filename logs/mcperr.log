@@ -1,0 +1,4 @@
+2024-03-21 22:07 -    commands.checkjars - WARNING - !! Missing jar file jars/bin/minecraft.jar. Aborting !!
+2024-03-21 22:07 -    commands.checkjars - WARNING - !! Missing jar file jars/minecraft_server.jar. Aborting !!
+2024-03-21 22:07 -    commands.checksources - WARNING - !! Can not find client sources !!
+2024-03-21 22:07 -    commands.checksources - WARNING - !! Can not find server sources !!
