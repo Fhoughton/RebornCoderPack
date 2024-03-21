@@ -11,8 +11,7 @@ warnings.simplefilter('ignore')
 import sys
 import logging
 import os, shutil, zipfile, glob, csv, re, subprocess
-import ConfigParser
-import urllib, urllib2
+import configparser
 from filehandling.srgsexport import writesrgsfromcsvs
 from pylibs.annotate_gl_constants import annotate_file
 from pylibs.whereis import whereis
@@ -28,14 +27,6 @@ class Commands(object):
     _default_config = 'conf/mcp.cfg'
 
     def __init__(self, conffile=None):
-        #HINT: This is for the singleton pattern. If we already did __init__, we skip it
-        if     Commands._single:return
-        if not Commands._single:Commands._single=True
-
-        if sys.version_info[0] == 3:
-            print ('ERROR : Python3 is not supported yet.')
-            sys.exit(1)
-
         self.conffile = conffile
 
         self.readconf()
@@ -55,12 +46,6 @@ class Commands(object):
         self.logger.debug('OS : %s'%sys.platform)
         self.checkjava()
         self.readcommands()
-
-    #HINT: This is for the singleton pattern. We either create a new instance or return the current one
-    def __new__(cls, *args, **kwargs):
-        if not cls._instance:
-            cls._instance = super(Commands, cls).__new__(cls, *args, **kwargs)
-        return cls._instance
 
     def readcommands(self):
         self.patcher     = self.config.get('COMMANDS', 'Patcher' ).replace('/',os.sep).replace('\\',os.sep)
@@ -116,7 +101,7 @@ class Commands(object):
 
     def readconf(self):
         """Read the configuration file to setup some basic paths"""
-        config = ConfigParser.SafeConfigParser()
+        config = configparser.SafeConfigParser()
         config.readfp(open(self._default_config))
         if self.conffile is not None:
             config.read(self.conffile)
@@ -132,7 +117,7 @@ class Commands(object):
             self.dirreobf = config.get('DEFAULT','DirReobf')
             self.dirlib   = config.get('DEFAULT','DirLib')
             self.dirffout = config.get('DEFAULT','DirFFOut')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             pass
 
         #HINT: We read the position of the CSV files
@@ -205,7 +190,7 @@ class Commands(object):
             self.cpathclient  = config.get('RECOMPILE','ClassPathClient').split(',')
             self.fixesclient  = config.get('RECOMPILE','ClientFixes')
             self.cpathserver  = config.get('RECOMPILE','ClassPathServer').split(',')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             pass
 
         #HINT: Reobf related configs
@@ -237,7 +222,7 @@ class Commands(object):
             self.rgreobconfig   = config.get('RETROGUARD', 'RetroReobConf')
             self.rgclientreobconf = config.get('RETROGUARD', 'ClientReobConf')
             self.rgserverreobconf = config.get('RETROGUARD', 'ServerReobConf')
-        except ConfigParser.NoOptionError:
+        except configparser.NoOptionError:
             pass
 
     def creatergcfg(self):
@@ -248,9 +233,9 @@ class Commands(object):
     def createsinglergcfg(self, reobf=False):
         """Create the files necessary for RetroGuard"""
         if reobf:
-            rgout = open(self.rgreobconfig, 'wb')
+            rgout = open(self.rgreobconfig, 'w')
         else:
-            rgout = open(self.rgconfig, 'wb')
+            rgout = open(self.rgconfig, 'w')
         rgout.write('.option Application\n')
         rgout.write('.option Applet\n')
         rgout.write('.option Repackage\n')
@@ -783,21 +768,9 @@ class Commands(object):
         pclient = subprocess.Popen(forkcmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         msgs        = []
         returnvalue = None
-        while True:
-            o = pclient.stdout.readline()
-            returnvalue = pclient.poll()
-            if o == '' and returnvalue is not None:
-                break
-            if o != '':
-                self.loggermc.debug(o.strip())
-                msgs.append(o.strip())
 
-        if returnvalue != 0:
-            for msg in msgs:
-                self.logger.error(msg)
-        else:
-            for msg in msgs:
-                self.logger.debug(msg)
+        for msg in msgs:
+            self.logger.debug(msg)
 
     def extractjar(self, side):
         """Unzip the jar file to the bin directory defined in the config file"""
@@ -919,22 +892,24 @@ class Commands(object):
         deoblk = {0:self.rgclientdeoblog, 1:self.rgserverdeoblog}
         reoblk = {0:self.reobsrgclient, 1:self.reobsrgserver}
 
-        deoblog = open(deoblk[side],'r').read()
-        reobsrg = open(reoblk[side],'w')
+        try:
+            deoblog = open(deoblk[side],'r').read()
+            reobsrg = open(reoblk[side],'w')
+        except:
+            return
+        else:
+            methodsreader = csv.DictReader(open(self.csvmethods, 'r'), delimiter=',',quotechar='"', quoting=csv.QUOTE_ALL)
+            fieldsreader  = csv.DictReader(open(self.csvfields,  'r'), delimiter=',',quotechar='"', quoting=csv.QUOTE_ALL)
 
-        methodsreader = csv.DictReader(open(self.csvmethods, 'r'), delimiter=',',quotechar='"', quoting=csv.QUOTE_ALL)
-        fieldsreader  = csv.DictReader(open(self.csvfields,  'r'), delimiter=',',quotechar='"', quoting=csv.QUOTE_ALL)
-
-        #TODO: A bit too much brute force and a bit slow.
-        for row in methodsreader:
-            if int(row['side']) == side:
-                deoblog = deoblog.replace(row['searge'], row['name'])
-        for row in fieldsreader:
-            if int(row['side']) == side:
-                deoblog = deoblog.replace(row['searge'], row['name'])
-
-        reobsrg.write(deoblog)
-        reobsrg.close()
+            #TODO: A bit too much brute force and a bit slow.
+            for row in methodsreader:
+                if int(row['side']) == side:
+                    deoblog = deoblog.replace(row['searge'], row['name'])
+            for row in fieldsreader:
+                if int(row['side']) == side:
+                    deoblog = deoblog.replace(row['searge'], row['name'])
+            reobsrg.write(deoblog)
+            reobsrg.close()
 
     def gathermd5s(self, side, reobf=False):
         if not reobf:

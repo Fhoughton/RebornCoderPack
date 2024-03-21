@@ -12,11 +12,6 @@ from commands import Commands
 if sys.version_info[0] == 3:
     raw_input=input
 def main(conffile=None, force=False):
-
-    if sys.version_info[0] == 3:
-        print ('ERROR : Python3 is not supported yet.')
-        sys.exit(1)
-
     if not force:
         print('WARNING:')
         print('The cleanup script will delete all folders created by MCP, including the')
@@ -27,7 +22,6 @@ def main(conffile=None, force=False):
             sys.exit(0)
 
     commands = Commands(conffile)
-    commands.checkupdates()
 
     commands.logger.info ('> Cleaning temp')
     if not reallyrmtree(commands.dirtemp):
