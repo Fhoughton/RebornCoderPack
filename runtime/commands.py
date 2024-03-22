@@ -494,6 +494,9 @@ class Commands(object):
             rgcp = [self.retroguard] + self.cpathserver
             rgcp = os.pathsep.join(rgcp)
 
+        # escape rgcp to fix errors
+        rgcp = f'\"{rgcp}\"'
+
         forkcmd = self.cmdrg.format(classpath=rgcp, conffile=rgconf)
         self.runcmd(forkcmd)
 
@@ -570,7 +573,7 @@ class Commands(object):
 
         #HINT: Here we transform the patches to match the directory separator of the specific platform
         patch    = open(patchlk[side],'r').read().splitlines()
-        outpatch = open(self.patchtemp,'wb')
+        outpatch = open(self.patchtemp,'w')
         for line in patch:
             if line[:3] in ['+++','---', 'Onl', 'dif']:
                  outpatch.write(line.replace('\\',os.sep).replace('/',os.sep) + '\r\n')
@@ -584,32 +587,9 @@ class Commands(object):
         buffer = []
         errormsgs = []
         retcode = None
-        while True:
-            o = p.stdout.readline()
-            retcode = p.poll()
-            if o == '' and retcode is not None:
-                break
-            if o != '':
-                buffer.append(o.strip())
-
-        if retcode == 0:
-            for line in buffer:
-                self.logger.debug(line)
-        else:
-            self.logger.warn('%s failed.'%forkcmd)
-            self.logger.warn('Return code : %d'%retcode)
-            for line in buffer:
-                if 'saving rejects' in line:
-                    errormsgs.append(line)
-                self.logger.debug(line)
-
-            self.logger.warn('')
-            self.logger.warn('== ERRORS FOUND ==')
-            self.logger.warn('')
-            for line in errormsgs:
-                self.logger.warn(line)
-            self.logger.warn('==================')
-            self.logger.warn('')
+        
+        for line in buffer:
+            self.logger.debug(line)
 
     def applyffpatches(self, side):
         """Applies the patches to the src directory"""
@@ -689,35 +669,9 @@ class Commands(object):
         buffer = []
         errormsgs = []
         retcode = None
-        while True:
-            o = p.stdout.readline()
-            retcode = p.poll()
-            if o == '' and retcode is not None:
-                break
-            if o != '':
-                buffer.append(o.strip())
-
-        if retcode == 0:
-            for line in buffer:
-                self.logger.debug(line)
-        else:
-            self.logger.error('%s failed.'%forkcmd)
-            self.logger.error('Return code : %d'%retcode)
-            for line in buffer:
-                if not line.strip(): continue
-                if line[0] != '[' and line[0:4] != 'Note':
-                    errormsgs.append(line)
-                self.logger.debug(line)
-
-            self.logger.error('')
-            self.logger.error('== ERRORS FOUND ==')
-            self.logger.error('')
-            for line in errormsgs:
-                self.logger.error(line)
-                if '^' in line: self.logger.error('')
-            self.logger.error('==================')
-            self.logger.error('')
-            #sys.exit(1)
+        
+        for line in buffer:
+            self.logger.debug(line)
 
     def startserver(self):
         cps = ['../'+p for p in self.cpathserver]
@@ -746,22 +700,17 @@ class Commands(object):
         p = subprocess.Popen(forkcmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         buffer = []
         retcode = None
-        while True:
-            o = p.stdout.readline()
-            retcode = p.poll()
-            if o == '' and retcode is not None:
-                break
-            if o != '':
-                buffer.append(o.strip())
 
-        if retcode == 0:
-            for line in buffer:
-                self.logger.debug(line)
-        else:
-            self.logger.error('%s failed.'%forkcmd)
+        # Read and print output line by line
+        for line in p.stdout:
+            print(line.decode(encoding='utf-8'), end='')
+
+        p.wait()
+
+        for line in buffer:
+            self.logger.error('%s finished.'%forkcmd)
             self.logger.error('Return code : %d'%retcode)
-            for line in buffer:
-                self.logger.error(line)
+            self.logger.debug(line)
 
     def runmc(self, forkcmd):
         self.logger.debug("runmc: '"+forkcmd+"'")
